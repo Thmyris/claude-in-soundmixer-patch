@@ -1,0 +1,10 @@
+# build output (patch.ps1 builds into the Claude folder, but a local build may land here)
+*.exe
+*.pdb
+
+# runtime files of an install
+watcher.log
+claude-level.txt
+*.bak*
+
+__pycache__/

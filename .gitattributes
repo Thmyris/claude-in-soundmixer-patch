@@ -1,0 +1,9 @@
+* text=auto
+
+# Windows scripts and source keep CRLF on checkout
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.cs  text eol=crlf
+
+*.wav binary
+*.mp3 binary
