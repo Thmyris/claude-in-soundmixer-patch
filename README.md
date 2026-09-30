@@ -1,0 +1,140 @@
+# Claude in the sound mixer
+
+**This patch is for Windows machines.** (Windows 10 and 11.)
+
+A patch for the Claude desktop app that gives Claude **one permanent "Claude" slider
+in the Windows Volume Mixer**. That slider also controls the audio of Claude's
+Terminal panel. The patch can also add a **Cursor-like chime when a prompt
+finishes**, and that chime follows the same slider.
+
+## What the patch does
+
+Without the patch:
+
+- Claude only shows up in the Volume Mixer for a few minutes after it has played a
+  sound. After that, Chromium (which Claude is built on) drops its audio session and
+  the slider disappears, so there is nothing to turn down until Claude is noisy again.
+- Anything you run in Claude's **Terminal panel** (the shell on the side) gets its own
+  "Windows PowerShell" / "cmd" slider. The Claude slider has no effect on it.
+- Claude Code has no sound when it finishes a prompt or needs you.
+
+With the patch:
+
+- **A permanent "Claude" slider.** It has Claude's name and icon and stays in the mixer
+  for as long as the Claude app is running, even while Claude is silent.
+- **One slider for everything Claude does.** Claude's own audio, the Terminal panel
+  and everything started from it, and the chime all share that one slider. Moving it
+  or muting it applies to all of them. Changing any of them in
+  *Settings > Sound > App volume* updates the rest.
+- **Optional chime (you are asked during install).** A Cursor-like chime plays when
+  Claude finishes a prompt. It can also play when Claude needs your permission or is
+  waiting for you, like Cursor does. It plays at the Claude slider's level and stays
+  silent while Claude is muted.
+  - If Cursor is installed, you can use Cursor's own sound. It is copied from your
+    Cursor install and is never bundled here.
+  - Otherwise the patch uses its own chime (`sounds/chime.wav`). It is an original
+    sound made by `tools/make-chime.py`, as loud as Cursor's.
+
+## Install
+
+1. Download this repository (green **Code** button > *Download ZIP*, then unzip) or
+   clone it.
+2. Double-click **`install.cmd`** and answer the questions:
+   - *Do you want a Cursor-like chime when Claude finishes a prompt?*
+   - *Also play it when Claude needs your permission or is waiting for you?*
+   - *Cursor is installed. Use Cursor's own sound?* (only asked if Cursor is found)
+3. Restart any open Claude Code sessions so they pick up the new hooks.
+
+The slider appears when your next Claude Code session starts. If the Claude app was
+already open, it appears right away.
+
+The same thing without prompts, from PowerShell in the repository folder:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\patch.ps1 -Chime yes -WaitingChime yes -Sound bundled
+```
+
+| Parameter | Values | Meaning |
+|---|---|---|
+| `-Chime` | `ask` (default), `yes`, `no` | chime when a prompt finishes |
+| `-WaitingChime` | `ask`, `yes`, `no` | also chime on permission prompts and when Claude is waiting |
+| `-Sound` | `ask`, `cursor`, `bundled` | Cursor's own sound, or the one in this repo |
+| `-ClaudeDir` | a folder | Claude Code's config folder; default `$env:CLAUDE_CONFIG_DIR`, else `%USERPROFILE%\.claude` |
+| `-Uninstall` | | remove everything |
+
+Running the patch again updates the install and lets you change your answers. It
+needs no admin rights.
+
+## Uninstall
+
+Double-click **`uninstall.cmd`**, or:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\patch.ps1 -Uninstall
+```
+
+This removes the hooks from `settings.json` (it keeps everything else in that file),
+stops the watcher and deletes the installed files.
+
+## How it works
+
+The patch compiles `src/claude-chime.cs` with the .NET Framework compiler that comes
+with Windows, which gives `%USERPROFILE%\.claude\sounds\claude-chime.exe`. It then
+adds Claude Code hooks to
+`%USERPROFILE%\.claude\settings.json`, after backing that file up to
+`settings.json.bak-<date>`:
+
+| Hook | Command | Why |
+|---|---|---|
+| `SessionStart` | `claude-chime.exe --start` | starts the mixer watcher (always installed) |
+| `Stop` | `claude-chime.exe` | chime when a prompt finishes (if you chose it) |
+| `Notification` | `claude-chime.exe` | chime when Claude needs you (if you chose it) |
+
+**The watcher** is a small background process that runs only while the Claude desktop
+app is open. It exits when the app closes, and only one copy runs at a time. It uses
+about 0.3% of one CPU core and about 25 MB of RAM. Once a second it does the
+following:
+
+1. It holds a silent audio stream of its own on the default output device. The stream
+   is opened but never started, so it plays nothing. It is labelled "Claude" with
+   Claude's icon, and this is the slider that stays in the mixer.
+2. It finds the audio sessions of the Claude app and of every process the app started,
+   such as Terminal panel shells, what you run in them, and the chime. It gives them
+   all the same grouping ID as its own stream, and the Volume Mixer draws sessions
+   that share a grouping ID as one slider.
+3. It keeps all of them at the same level and mute. If one of them changes, the rest
+   follow.
+4. Windows remembers volume per program. So if an unrelated PowerShell (for example in
+   Windows Terminal) inherits the Claude level that way, the watcher puts that
+   PowerShell back to 100%.
+
+**The chime** reads the current Claude level, plays `chime.wav` or `chime.mp3` at
+that level, and does nothing while Claude is muted.
+
+## Requirements
+
+- Windows 10 or 11 (this patch is for Windows machines).
+- The Claude desktop app, using Claude Code (the Code tab). The hooks run in
+  Claude Code sessions.
+- .NET Framework 4.x, which is built into Windows 10 and 11.
+
+## Troubleshooting
+
+- Run `%USERPROFILE%\.claude\sounds\claude-chime.exe --why`. It shows which level the
+  chime would use, where that level came from, and whether the watcher is running.
+- The watcher logs to `%USERPROFILE%\.claude\sounds\watcher.log`.
+- The Claude slider only exists while the watcher runs. The watcher starts with your
+  first Claude Code session after the Claude app opens. If you only use the chat part
+  of the app, it never starts.
+- If you downloaded the ZIP and Windows blocks `install.cmd`, right-click the ZIP >
+  *Properties* > *Unblock* before unzipping.
+
+## Files
+
+| Path | What it is |
+|---|---|
+| `install.cmd`, `uninstall.cmd` | double-click wrappers around `patch.ps1` |
+| `patch.ps1` | the patch: builds, installs, edits `settings.json`, uninstalls |
+| `src/claude-chime.cs` | the chime and the mixer watcher (one program) |
+| `sounds/chime.wav` | the bundled chime |
+| `tools/make-chime.py` | regenerates `sounds/chime.wav` |
