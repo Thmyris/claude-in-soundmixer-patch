@@ -238,7 +238,7 @@ $wantChime = [bool] $soundFile
 
 $wantWaiting = $false
 if ($wantChime) {
-    if ($WaitingChime -eq 'ask') { $wantWaiting = Ask-YesNo 'Also play the chime when Claude needs your permission or is waiting for you (Cursor does)?' $true }
+    if ($WaitingChime -eq 'ask') { $wantWaiting = Ask-YesNo 'Play the cursor chime when Claude is waiting for you?' $true }
     else { $wantWaiting = $WaitingChime -eq 'yes' }
 }
 
