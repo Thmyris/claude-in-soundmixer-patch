@@ -30,8 +30,11 @@
 // Settings > App volume moves one) sets the level and mute for all of them.
 // If some unrelated process of an exe it adjusted (e.g. a PowerShell in Windows
 // Terminal) inherits that level from Windows' per-exe memory, it is put back to
-// 100%. It polls every second, remembers each audio process's verdict and only
-// snapshots the process table for new ones. The watcher exits when the Claude
+// 100%. It polls every second, and at once when Windows reports that any app opened
+// an audio session (so e.g. Claude's sound after an update, which Windows starts at
+// 100% because it has no saved level for the new exe path, is pulled down within
+// milliseconds). It remembers each audio process's verdict and only snapshots the
+// process table for new ones. The watcher exits when the Claude
 // desktop app is no longer running; one instance at a time. Log: watcher.log next
 // to the exe.
 //
@@ -279,6 +282,8 @@ static class ClaudeChime
             var lastSet = new Dictionary<string, Target>();                                   // session instance id -> level we left it at
             var verdicts = new Dictionary<uint, Verdict>();
             var managers = new Dictionary<string, IAudioSessionManager2>();                   // device -> session manager
+            var wake = new AutoResetEvent(false);                                               // set when any app opens a session
+            var notifier = new SessionNotifier(wake);
             IMMDeviceEnumerator enumerator = null;
             StandIn standIn = null;
             float level = 1f; bool muted = false, haveLevel = false;
@@ -346,7 +351,14 @@ static class ClaudeChime
                         string devId = DeviceId(dev);
                         active.Add(devId);
                         IAudioSessionManager2 mgr;
-                        if (!managers.TryGetValue(devId, out mgr)) { mgr = SessionManager(dev); managers[devId] = mgr; }
+                        if (!managers.TryGetValue(devId, out mgr))
+                        {
+                            mgr = SessionManager(dev);
+                            // If this fails the once-a-second poll still catches new sessions.
+                            int hr = mgr.RegisterSessionNotification(notifier);
+                            if (hr != 0) Log(string.Format("session notifications unavailable (0x{0:X8}), polling only", hr));
+                            managers[devId] = mgr;
+                        }
                         foreach (var s in SessionsOf(mgr))
                         {
                             s.Device = devId;
@@ -363,6 +375,7 @@ static class ClaudeChime
                     // Own session first: it's the one the slider is named after.
                     members.Sort((a, b) => (a.Pid == self ? 0 : 1).CompareTo(b.Pid == self ? 0 : 1));
 
+                    bool firstPoll = !haveLevel;
                     if (!haveLevel)
                     {
                         // Start from Claude's live slider, else what we last saw during this run
@@ -402,6 +415,12 @@ static class ClaudeChime
                     foreach (var s in members)
                     {
                         Guid ctx = Guid.Empty;
+                        // A new session that opened at another level (e.g. Claude after an update:
+                        // Windows has no saved level for the new exe path, so it starts at 100%).
+                        if (!firstPoll && !lastSet.ContainsKey(s.Id)
+                            && (Math.Abs(s.Volume - level) > 0.004f || s.Muted != muted))
+                            Log(string.Format(CultureInfo.InvariantCulture, "new {0} session (pid {1}) opened at {2:0.00}{3}, set to {4:0.00}",
+                                s.V.Exe == null ? "?" : System.IO.Path.GetFileName(s.V.Exe), s.Pid, s.Volume, s.Muted ? " muted" : "", level));
                         if (s.Grouping != ClaudeGroup) { Guid g = ClaudeGroup; s.Control.SetGroupingParam(ref g, ref ctx); }
                         if (Math.Abs(s.Volume - level) > 0.004f) s.Volume_.SetMasterVolume(Clamp(level), ref ctx);
                         if (s.Muted != muted) s.Volume_.SetMute(muted, ref ctx);
@@ -446,7 +465,7 @@ static class ClaudeChime
                     ReleaseAll(all);
 
                     foreach (var id in new List<string>(managers.Keys))
-                        if (!active.Contains(id)) { Marshal.ReleaseComObject(managers[id]); managers.Remove(id); }
+                        if (!active.Contains(id)) { DropManager(managers[id], notifier); managers.Remove(id); }
                     foreach (var pid in new List<uint>(verdicts.Keys))
                         if (verdicts[pid].Seen != poll) verdicts.Remove(pid);
                     lastError = null;
@@ -456,13 +475,37 @@ static class ClaudeChime
                     if (e.Message != lastError) Log("error: " + e.Message);
                     lastError = e.Message;
                     // e.g. the Windows audio service restarted: start over with fresh objects.
-                    foreach (var m in managers.Values) { try { Marshal.ReleaseComObject(m); } catch { } }
+                    foreach (var m in managers.Values) DropManager(m, notifier);
                     managers.Clear();
                     if (standIn != null) { standIn.Dispose(); standIn = null; }
                     enumerator = null;
                 }
-                Thread.Sleep(1000);
+                // Poll again after a second, or right away when an app opens an audio session.
+                wake.WaitOne(1000);
             }
+        }
+    }
+
+    static void DropManager(IAudioSessionManager2 manager, SessionNotifier notifier)
+    {
+        try { manager.UnregisterSessionNotification(notifier); } catch { }
+        try { Marshal.ReleaseComObject(manager); } catch { }
+    }
+
+    // Windows calls this on one of its own threads the moment any app opens an audio
+    // session. It only wakes the watcher, which then polls at once, so a new Claude
+    // session is pulled to the slider's level within milliseconds instead of at the
+    // next once-a-second poll.
+    class SessionNotifier : IAudioSessionNotification
+    {
+        readonly AutoResetEvent wake;
+        public SessionNotifier(AutoResetEvent wake) { this.wake = wake; }
+
+        public int OnSessionCreated(IAudioSessionControl newSession)
+        {
+            if (newSession != null) Marshal.ReleaseComObject(newSession);
+            wake.Set();
+            return 0;
         }
     }
 
@@ -972,6 +1015,14 @@ static class ClaudeChime
         [PreserveSig] int GetSimpleAudioVolume(ref Guid sessionGuid, int streamFlags, out ISimpleAudioVolume volume);
         // IAudioSessionManager2
         [PreserveSig] int GetSessionEnumerator(out IAudioSessionEnumerator sessionEnum);
+        [PreserveSig] int RegisterSessionNotification(IAudioSessionNotification notification);
+        [PreserveSig] int UnregisterSessionNotification(IAudioSessionNotification notification);
+    }
+
+    [ComImport, Guid("641DD20B-4D41-49CC-ABA3-174B9477BB08"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IAudioSessionNotification
+    {
+        [PreserveSig] int OnSessionCreated(IAudioSessionControl newSession);
     }
 
     [ComImport, Guid("E2F5BB11-0570-40CA-ACDD-3AA01277DEE8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]

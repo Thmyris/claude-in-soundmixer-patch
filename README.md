@@ -92,8 +92,9 @@ adds Claude Code hooks to
 
 **The watcher** is a small background process that runs only while the Claude desktop
 app is open. It exits when the app closes, and only one copy runs at a time. It uses
-about 0.3% of one CPU core and about 25 MB of RAM. Once a second it does the
-following:
+about 0.2% of one CPU core and about 25 MB of RAM. It does the following once a
+second, and also immediately whenever Windows reports that any app has opened an
+audio session:
 
 1. It holds a silent audio stream of its own on the default output device. The stream
    is opened but never started, so it plays nothing. It is labelled "Claude" with
@@ -103,7 +104,11 @@ following:
    all the same grouping ID as its own stream, and the Volume Mixer draws sessions
    that share a grouping ID as one slider.
 3. It keeps all of them at the same level and mute. If one of them changes, the rest
-   follow.
+   follow. A new session is set to the Claude level within milliseconds, before it
+   starts playing. This matters after a Claude update: Windows saves per-app volume
+   by exe path, so it opens the new build's audio at 100%. Without the immediate
+   check, Claude's next sound would start at full volume and only drop when the next
+   once-a-second check ran.
 4. Windows remembers volume per program. So if an unrelated PowerShell (for example in
    Windows Terminal) inherits the Claude level that way, the watcher puts that
    PowerShell back to 100%.
