@@ -23,9 +23,7 @@ You need [Git for Windows](https://git-scm.com/download/win) for `git clone` (or
 download the ZIP instead, see below). In PowerShell:
 
 ```powershell
-git clone https://github.com/Thmyris/claude-in-soundmixer-patch.git
-cd claude-in-soundmixer-patch
-.\install.cmd
+git clone https://github.com/Thmyris/claude-in-soundmixer-patch.git; if ($?) { cd claude-in-soundmixer-patch; .\install.cmd }
 ```
 
 Answer the questions, then restart any open Claude Code sessions. That's it.
