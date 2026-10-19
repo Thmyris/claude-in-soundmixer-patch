@@ -9,10 +9,9 @@ A patch for the Claude desktop app on Windows. It does three things:
    stays there even while Claude is silent.
 2. It puts the audio of Claude's **Terminal panel** (and everything you run in it)
    under that same slider.
-3. If you have [Cursor](https://cursor.com) installed, it plays **Cursor's chime when
-   Claude finishes a prompt** (and, if you want, when Claude needs your permission).
-   The chime follows the slider: it gets quieter when you turn Claude down and stays
-   silent when you mute Claude.
+3. It plays a **chime when Claude finishes a prompt** (and, if you want, when Claude
+   needs your permission). The chime follows the slider: it gets quieter when you turn
+   Claude down and stays silent when you mute Claude.
 
 This is an unofficial community patch. It is not made by or affiliated with
 Anthropic. It changes no Claude files: it only adds hooks to your Claude Code
@@ -27,8 +26,7 @@ download the ZIP instead, see below). In PowerShell:
 git clone https://github.com/Thmyris/claude-in-soundmixer-patch.git; if ($?) { cd claude-in-soundmixer-patch; .\install.cmd }
 ```
 
-Answer its one question (only asked if Cursor is installed), then restart any open
-Claude Code sessions. That's it.
+Answer its one question, then restart any open Claude Code sessions. That's it.
 
 **Without Git:** on the GitHub page click **Code > Download ZIP**, unzip it, and
 double-click `install.cmd` in the unzipped folder.
@@ -55,22 +53,20 @@ With the patch:
   and everything started from it, and the chime all share that one slider. Moving it
   or muting it applies to all of them. Changing any of them in
   *Settings > Sound > App volume* updates the rest.
-- **Cursor's chime.** Cursor's "done" sound plays when Claude finishes a prompt. If
-  you want (you are asked during install), it also plays when Claude needs your
-  permission or is waiting for you, like Cursor does. It plays at the Claude slider's
-  level and stays silent while Claude is muted.
-  - **The chime needs Cursor installed.** The sound belongs to Cursor, so it is not
-    included in this repository: the patch copies it from your Cursor install. Without
-    Cursor the patch installs only the slider. Install Cursor and run `install.cmd`
-    again to add the chime. Cursor can be uninstalled afterwards; the copied sound
-    stays.
+- **A chime.** A chime plays when Claude finishes a prompt. If you want (you are asked
+  during install), it also plays when Claude needs your permission or is waiting for
+  you, like Cursor does. It plays at the Claude slider's level and stays silent while
+  Claude is muted.
+  - The sound is `chime\chime.mp3` (or `chime\chime.wav`) in this folder. To use a
+    different sound, replace that file and run `install.cmd` again. If the `chime`
+    folder has neither file, the patch installs only the slider.
 
 ## Install in detail
 
 1. Get the files: `git clone https://github.com/Thmyris/claude-in-soundmixer-patch.git`,
    or **Code > Download ZIP** on GitHub and unzip it.
-2. Run **`install.cmd`** (double-click it, or `.\install.cmd` in PowerShell). If
-   Cursor is installed it asks one question:
+2. Run **`install.cmd`** (double-click it, or `.\install.cmd` in PowerShell). It asks
+   one question (skipped if there is no chime sound):
    - *Also play the chime when Claude needs your permission or is waiting for you?*
 3. Restart any open Claude Code sessions so they pick up the new hooks.
 
@@ -85,7 +81,7 @@ powershell -ExecutionPolicy Bypass -File .\patch.ps1 -WaitingChime yes
 
 | Parameter | Values | Meaning |
 |---|---|---|
-| `-Chime` | `yes` (default), `no` | Cursor's chime when a prompt finishes; `no` installs only the slider |
+| `-Chime` | `yes` (default), `no` | chime when a prompt finishes; `no` installs only the slider |
 | `-WaitingChime` | `ask` (default), `yes`, `no` | also chime on permission prompts and when Claude is waiting |
 | `-ClaudeDir` | a folder | Claude Code's config folder; default `$env:CLAUDE_CONFIG_DIR`, else `%USERPROFILE%\.claude` |
 | `-Uninstall` | | remove everything |
@@ -115,7 +111,7 @@ adds Claude Code hooks to
 | Hook | Command | Why |
 |---|---|---|
 | `SessionStart` | `claude-chime.exe --start` | starts the mixer watcher (always installed) |
-| `Stop` | `claude-chime.exe` | chime when a prompt finishes (if Cursor is installed) |
+| `Stop` | `claude-chime.exe` | chime when a prompt finishes (if there is a chime sound) |
 | `Notification` | `claude-chime.exe` | chime when Claude needs you (if you chose it) |
 
 **The watcher** is a small background process that runs only while the Claude desktop
@@ -141,9 +137,8 @@ audio session:
    Windows Terminal) inherits the Claude level that way, the watcher puts that
    PowerShell back to 100%.
 
-**The chime** is Cursor's `done1.mp3`, copied from
-`resources\app\out\vs\platform\accessibilitySignal\browser\media\` in your Cursor
-install to `%USERPROFILE%\.claude\sounds\chime.mp3`. When a hook runs, it reads the
+**The chime** is `chime\chime.mp3` (or `chime\chime.wav`) from this folder, copied to
+`%USERPROFILE%\.claude\sounds\`. When a hook runs, it reads the
 current Claude level, plays the sound at that level, and does nothing while Claude is
 muted.
 
@@ -189,3 +184,4 @@ You can make the chime part on its own on macOS or Linux by hand. Add a Claude C
 | `install.cmd`, `uninstall.cmd` | double-click wrappers around `patch.ps1` |
 | `patch.ps1` | the patch: builds, installs, edits `settings.json`, uninstalls |
 | `src/claude-chime.cs` | the chime and the mixer watcher (one program) |
+| `chime/chime.mp3` or `chime/chime.wav` | the chime sound |

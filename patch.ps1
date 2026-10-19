@@ -1,18 +1,18 @@
 <#
 .SYNOPSIS
   Claude in the sound mixer: one permanent "Claude" slider in the Windows Volume
-  Mixer that also controls Claude's Terminal panel, plus Cursor's chime when a
-  prompt finishes (taken from your Cursor install).
+  Mixer that also controls Claude's Terminal panel, plus a chime when a prompt
+  finishes.
 
 .DESCRIPTION
   Builds claude-chime.exe from src\claude-chime.cs with the .NET Framework
   compiler that ships with Windows, copies it to <Claude dir>\sounds and adds
   Claude Code hooks to <Claude dir>\settings.json:
     SessionStart  claude-chime.exe --start   starts the mixer watcher (always)
-    Stop          claude-chime.exe           chime when a prompt finishes (needs Cursor)
+    Stop          claude-chime.exe           chime when a prompt finishes
     Notification  claude-chime.exe           chime when Claude needs you (optional)
-  The chime is Cursor's own done1.mp3, copied from your Cursor install. Without
-  Cursor only the slider is installed.
+  The chime is chime\chime.mp3 or chime\chime.wav in this folder. Without one,
+  only the slider is installed.
   settings.json is backed up before it is changed. Running it again updates the
   install; -Uninstall removes it.
 
@@ -25,7 +25,7 @@
 #>
 [CmdletBinding()]
 param(
-    # Chime when Claude finishes a prompt (only if Cursor is installed). no = slider only.
+    # Chime when Claude finishes a prompt (needs chime\chime.mp3 or .wav). no = slider only.
     [ValidateSet('yes', 'no')] [string] $Chime = 'yes',
     # Also chime when Claude asks for permission or is waiting for you.
     [ValidateSet('ask', 'yes', 'no')] [string] $WaitingChime = 'ask',
@@ -66,15 +66,9 @@ function Ask-YesNo([string] $question, [bool] $default) {
     }
 }
 
-function Find-CursorSound {
-    $relative = 'resources\app\out\vs\platform\accessibilitySignal\browser\media\done1.mp3'
-    $roots = @(
-        (Join-Path $env:LOCALAPPDATA 'Programs\cursor'),
-        (Join-Path $env:ProgramFiles 'Cursor')
-    )
-    if (${env:ProgramFiles(x86)}) { $roots += (Join-Path ${env:ProgramFiles(x86)} 'Cursor') }
-    foreach ($root in $roots) {
-        $candidate = Join-Path $root $relative
+function Find-ChimeSound {
+    foreach ($name in 'chime.mp3', 'chime.wav') {
+        $candidate = Join-Path $repo "chime\$name"
         if (Test-Path -LiteralPath $candidate) { return $candidate }
     }
     return $null
@@ -234,12 +228,11 @@ Write-Host 'This adds one permanent "Claude" slider to the Windows Volume Mixer 
 Write-Host "controls Claude's Terminal panel."
 Write-Host ''
 
-# The chime is Cursor's own sound, so it needs Cursor installed.
 $soundFile = $null
-$noCursor = $false
+$noSound = $false
 if ($Chime -eq 'yes') {
-    $soundFile = Find-CursorSound
-    $noCursor = -not $soundFile
+    $soundFile = Find-ChimeSound
+    $noSound = -not $soundFile
 }
 $wantChime = [bool] $soundFile
 
@@ -293,9 +286,9 @@ if ($wantChime) {
     if ($wantWaiting) { $when += ' and when Claude needs you' }
     Write-Host "  - Chime $when, at the Claude slider's level, silent when it is muted."
 }
-elseif ($noCursor) {
-    Write-Host "  - No chime: it uses Cursor's own sound, and Cursor was not found. Install"
-    Write-Host '    Cursor and run install.cmd again to add it.'
+elseif ($noSound) {
+    Write-Host "  - No chime: there is no chime.mp3 or chime.wav in $(Join-Path $repo 'chime')."
+    Write-Host '    Put one there and run install.cmd again to add it.'
 }
 else { Write-Host '  - No chime.' }
 Write-Host '  Restart open Claude Code sessions so they pick up the new hooks.'
