@@ -1,11 +1,39 @@
-# Claude in the sound mixer
+# claude-in-soundmixer-patch
 
 **This patch is for Windows machines.** (Windows 10 and 11.)
 
-A patch for the Claude desktop app that gives Claude **one permanent "Claude" slider
-in the Windows Volume Mixer**. That slider also controls the audio of Claude's
-Terminal panel. The patch can also add a **Cursor-like chime when a prompt
-finishes**, and that chime follows the same slider.
+A patch for the Claude desktop app on Windows. It does three things:
+
+1. It gives Claude **one permanent "Claude" slider in the Windows Volume Mixer**, which
+   stays there even while Claude is silent.
+2. It puts the audio of Claude's **Terminal panel** (and everything you run in it)
+   under that same slider.
+3. Optionally, it adds a **Cursor-like chime when Claude finishes a prompt** (and,
+   if you want, when Claude needs your permission). The chime follows the slider:
+   it gets quieter when you turn Claude down and stays silent when you mute Claude.
+
+This is an unofficial community patch. It is not made by or affiliated with
+Anthropic. It changes no Claude files: it only adds hooks to your Claude Code
+settings and runs a small helper program next to them.
+
+## Quick start
+
+You need [Git for Windows](https://git-scm.com/download/win) for `git clone` (or
+download the ZIP instead, see below). In PowerShell:
+
+```powershell
+git clone https://github.com/Thmyris/claude-in-soundmixer-patch.git
+cd claude-in-soundmixer-patch
+.\install.cmd
+```
+
+Answer the questions, then restart any open Claude Code sessions. That's it.
+
+**Without Git:** on the GitHub page click **Code > Download ZIP**, unzip it, and
+double-click `install.cmd` in the unzipped folder.
+
+**Update:** run `git pull` in the folder, then `.\install.cmd` again.
+**Remove:** run `.\uninstall.cmd`.
 
 ## What the patch does
 
@@ -35,11 +63,12 @@ With the patch:
   - Otherwise the patch uses its own chime (`sounds/chime.wav`). It is an original
     sound made by `tools/make-chime.py`, as loud as Cursor's.
 
-## Install
+## Install in detail
 
-1. Download this repository (green **Code** button > *Download ZIP*, then unzip) or
-   clone it.
-2. Double-click **`install.cmd`** and answer the questions:
+1. Get the files: `git clone https://github.com/Thmyris/claude-in-soundmixer-patch.git`,
+   or **Code > Download ZIP** on GitHub and unzip it.
+2. Run **`install.cmd`** (double-click it, or `.\install.cmd` in PowerShell) and
+   answer the questions:
    - *Do you want a Cursor-like chime when Claude finishes a prompt?*
    - *Also play it when Claude needs your permission or is waiting for you?*
    - *Cursor is installed. Use Cursor's own sound?* (only asked if Cursor is found)
