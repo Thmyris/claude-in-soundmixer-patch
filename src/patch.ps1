@@ -17,11 +17,11 @@
   install; -Uninstall removes it.
 
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File patch.ps1
+  powershell -ExecutionPolicy Bypass -File src\patch.ps1
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File patch.ps1 -WaitingChime no
+  powershell -ExecutionPolicy Bypass -File src\patch.ps1 -WaitingChime no
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File patch.ps1 -Uninstall
+  powershell -ExecutionPolicy Bypass -File src\patch.ps1 -Uninstall
 #>
 [CmdletBinding()]
 param(
@@ -38,7 +38,7 @@ $ErrorActionPreference = 'Stop'
 
 if ($env:OS -ne 'Windows_NT') { throw 'This patch is for Windows machines.' }
 
-$repo = $PSScriptRoot
+$repo = Split-Path -Parent $PSScriptRoot   # the repository folder (this script is in src)
 if (-not $ClaudeDir) {
     if ($env:CLAUDE_CONFIG_DIR) { $ClaudeDir = $env:CLAUDE_CONFIG_DIR }
     else { $ClaudeDir = Join-Path $env:USERPROFILE '.claude' }
@@ -292,4 +292,4 @@ elseif ($noSound) {
 }
 else { Write-Host '  - No chime.' }
 Write-Host '  Restart open Claude Code sessions so they pick up the new hooks.'
-Write-Host '  Run uninstall.cmd (or patch.ps1 -Uninstall) to remove everything.'
+Write-Host '  Run uninstall.cmd (or src\patch.ps1 -Uninstall) to remove everything.'

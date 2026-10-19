@@ -76,7 +76,7 @@ already open, it appears right away.
 The same thing without prompts, from PowerShell in the repository folder:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\patch.ps1 -WaitingChime yes
+powershell -ExecutionPolicy Bypass -File .\src\patch.ps1 -WaitingChime yes
 ```
 
 | Parameter | Values | Meaning |
@@ -94,7 +94,7 @@ needs no admin rights.
 Double-click **`uninstall.cmd`**, or:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\patch.ps1 -Uninstall
+powershell -ExecutionPolicy Bypass -File .\src\patch.ps1 -Uninstall
 ```
 
 This removes the hooks from `settings.json` (it keeps everything else in that file),
@@ -181,7 +181,7 @@ You can make the chime part on its own on macOS or Linux by hand. Add a Claude C
 
 | Path | What it is |
 |---|---|
-| `install.cmd`, `uninstall.cmd` | double-click wrappers around `patch.ps1` |
-| `patch.ps1` | the patch: builds, installs, edits `settings.json`, uninstalls |
+| `install.cmd`, `uninstall.cmd` | double-click wrappers around `src/patch.ps1` |
+| `src/patch.ps1` | the patch: builds, installs, edits `settings.json`, uninstalls |
 | `src/claude-chime.cs` | the chime and the mixer watcher (one program) |
 | `chime/chime.mp3` or `chime/chime.wav` | the chime sound |
