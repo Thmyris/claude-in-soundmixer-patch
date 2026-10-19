@@ -57,8 +57,8 @@ With the patch:
   during install), it also plays when Claude needs your permission or is waiting for
   you, like Cursor does. It plays at the Claude slider's level and stays silent while
   Claude is muted.
-  - The sound is `chime\chime.mp3` (or `chime\chime.wav`) in this folder. To use a
-    different sound, replace that file and run `install.cmd` again. If the `chime`
+  - The sound is `sounds\chime.mp3` (or `sounds\chime.wav`) in this folder. To use a
+    different sound, replace that file and run `install.cmd` again. If the `sounds`
     folder has neither file, the patch installs only the slider.
 
 ## Install in detail
@@ -137,7 +137,7 @@ audio session:
    Windows Terminal) inherits the Claude level that way, the watcher puts that
    PowerShell back to 100%.
 
-**The chime** is `chime\chime.mp3` (or `chime\chime.wav`) from this folder, copied to
+**The chime** is `sounds\chime.mp3` (or `sounds\chime.wav`) from this folder, copied to
 `%USERPROFILE%\.claude\sounds\`. When a hook runs, it reads the
 current Claude level, plays the sound at that level, and does nothing while Claude is
 muted.
@@ -184,4 +184,4 @@ You can make the chime part on its own on macOS or Linux by hand. Add a Claude C
 | `install.cmd`, `uninstall.cmd` | double-click wrappers around `src/patch.ps1` |
 | `src/patch.ps1` | the patch: builds, installs, edits `settings.json`, uninstalls |
 | `src/claude-chime.cs` | the chime and the mixer watcher (one program) |
-| `chime/chime.mp3` or `chime/chime.wav` | the chime sound |
+| `sounds/chime.mp3` or `sounds/chime.wav` | the chime sound |

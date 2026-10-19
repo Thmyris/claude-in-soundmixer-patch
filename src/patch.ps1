@@ -11,7 +11,7 @@
     SessionStart  claude-chime.exe --start   starts the mixer watcher (always)
     Stop          claude-chime.exe           chime when a prompt finishes
     Notification  claude-chime.exe           chime when Claude needs you (optional)
-  The chime is chime\chime.mp3 or chime\chime.wav in this folder. Without one,
+  The chime is sounds\chime.mp3 or sounds\chime.wav in this folder. Without one,
   only the slider is installed.
   settings.json is backed up before it is changed. Running it again updates the
   install; -Uninstall removes it.
@@ -25,7 +25,7 @@
 #>
 [CmdletBinding()]
 param(
-    # Chime when Claude finishes a prompt (needs chime\chime.mp3 or .wav). no = slider only.
+    # Chime when Claude finishes a prompt (needs sounds\chime.mp3 or .wav). no = slider only.
     [ValidateSet('yes', 'no')] [string] $Chime = 'yes',
     # Also chime when Claude asks for permission or is waiting for you.
     [ValidateSet('ask', 'yes', 'no')] [string] $WaitingChime = 'ask',
@@ -68,7 +68,7 @@ function Ask-YesNo([string] $question, [bool] $default) {
 
 function Find-ChimeSound {
     foreach ($name in 'chime.mp3', 'chime.wav') {
-        $candidate = Join-Path $repo "chime\$name"
+        $candidate = Join-Path $repo "sounds\$name"
         if (Test-Path -LiteralPath $candidate) { return $candidate }
     }
     return $null
@@ -287,7 +287,7 @@ if ($wantChime) {
     Write-Host "  - Chime $when, at the Claude slider's level, silent when it is muted."
 }
 elseif ($noSound) {
-    Write-Host "  - No chime: there is no chime.mp3 or chime.wav in $(Join-Path $repo 'chime')."
+    Write-Host "  - No chime: there is no chime.mp3 or chime.wav in $(Join-Path $repo 'sounds')."
     Write-Host '    Put one there and run install.cmd again to add it.'
 }
 else { Write-Host '  - No chime.' }
