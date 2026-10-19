@@ -1,34 +1,34 @@
 <#
 .SYNOPSIS
   Claude in the sound mixer: one permanent "Claude" slider in the Windows Volume
-  Mixer that also controls Claude's Terminal panel, plus an optional Cursor-like
-  chime when a prompt finishes.
+  Mixer that also controls Claude's Terminal panel, plus Cursor's chime when a
+  prompt finishes (taken from your Cursor install).
 
 .DESCRIPTION
   Builds claude-chime.exe from src\claude-chime.cs with the .NET Framework
   compiler that ships with Windows, copies it to <Claude dir>\sounds and adds
   Claude Code hooks to <Claude dir>\settings.json:
     SessionStart  claude-chime.exe --start   starts the mixer watcher (always)
-    Stop          claude-chime.exe           chime when a prompt finishes (optional)
+    Stop          claude-chime.exe           chime when a prompt finishes (needs Cursor)
     Notification  claude-chime.exe           chime when Claude needs you (optional)
+  The chime is Cursor's own done1.mp3, copied from your Cursor install. Without
+  Cursor only the slider is installed.
   settings.json is backed up before it is changed. Running it again updates the
   install; -Uninstall removes it.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File patch.ps1
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File patch.ps1 -Chime yes -WaitingChime no -Sound bundled
+  powershell -ExecutionPolicy Bypass -File patch.ps1 -WaitingChime no
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File patch.ps1 -Uninstall
 #>
 [CmdletBinding()]
 param(
-    # Chime when Claude finishes a prompt.
-    [ValidateSet('ask', 'yes', 'no')] [string] $Chime = 'ask',
+    # Chime when Claude finishes a prompt (only if Cursor is installed). no = slider only.
+    [ValidateSet('yes', 'no')] [string] $Chime = 'yes',
     # Also chime when Claude asks for permission or is waiting for you.
     [ValidateSet('ask', 'yes', 'no')] [string] $WaitingChime = 'ask',
-    # cursor = Cursor's own done1.mp3 (needs Cursor installed), bundled = sounds\chime.wav.
-    [ValidateSet('ask', 'cursor', 'bundled')] [string] $Sound = 'ask',
     # Claude Code's config folder. Default: $env:CLAUDE_CONFIG_DIR, else ~\.claude.
     [string] $ClaudeDir,
     [switch] $Uninstall
@@ -226,8 +226,7 @@ $csc = @(
 if (-not $csc) { throw 'The .NET Framework 4 compiler (csc.exe) was not found. It ships with Windows 10 and 11; on older Windows install .NET Framework 4.8.' }
 
 $source = Join-Path $repo 'src\claude-chime.cs'
-$bundledSound = Join-Path $repo 'sounds\chime.wav'
-foreach ($f in $source, $bundledSound) { if (-not (Test-Path -LiteralPath $f)) { throw "Missing $f. Run the patch from the repository folder." } }
+if (-not (Test-Path -LiteralPath $source)) { throw "Missing $source. Run the patch from the repository folder." }
 
 # --- choices ---------------------------------------------------------------------
 Write-Host 'Claude in the sound mixer'
@@ -235,26 +234,19 @@ Write-Host 'This adds one permanent "Claude" slider to the Windows Volume Mixer 
 Write-Host "controls Claude's Terminal panel."
 Write-Host ''
 
-if ($Chime -eq 'ask') { $wantChime = Ask-YesNo 'Do you want a Cursor-like chime when Claude finishes a prompt?' $true }
-else { $wantChime = $Chime -eq 'yes' }
+# The chime is Cursor's own sound, so it needs Cursor installed.
+$soundFile = $null
+$noCursor = $false
+if ($Chime -eq 'yes') {
+    $soundFile = Find-CursorSound
+    $noCursor = -not $soundFile
+}
+$wantChime = [bool] $soundFile
 
 $wantWaiting = $false
-$soundFile = $null
 if ($wantChime) {
-    if ($WaitingChime -eq 'ask') { $wantWaiting = Ask-YesNo 'Also play it when Claude needs your permission or is waiting for you (Cursor does)?' $true }
+    if ($WaitingChime -eq 'ask') { $wantWaiting = Ask-YesNo 'Also play the chime when Claude needs your permission or is waiting for you (Cursor does)?' $true }
     else { $wantWaiting = $WaitingChime -eq 'yes' }
-
-    $cursorSound = Find-CursorSound
-    if ($Sound -eq 'cursor') {
-        if (-not $cursorSound) { throw "-Sound cursor: Cursor's done1.mp3 was not found. Use -Sound bundled." }
-        $soundFile = $cursorSound
-    }
-    elseif ($Sound -eq 'bundled') { $soundFile = $bundledSound }
-    elseif ($cursorSound) {
-        if (Ask-YesNo "Cursor is installed. Use Cursor's own sound? (n = the chime that comes with this patch)" $true) { $soundFile = $cursorSound }
-        else { $soundFile = $bundledSound }
-    }
-    else { $soundFile = $bundledSound }
 }
 
 # Read settings before touching anything, so a broken settings.json stops the patch early.
@@ -300,6 +292,10 @@ if ($wantChime) {
     $when = 'when a prompt finishes'
     if ($wantWaiting) { $when += ' and when Claude needs you' }
     Write-Host "  - Chime $when, at the Claude slider's level, silent when it is muted."
+}
+elseif ($noCursor) {
+    Write-Host "  - No chime: it uses Cursor's own sound, and Cursor was not found. Install"
+    Write-Host '    Cursor and run install.cmd again to add it.'
 }
 else { Write-Host '  - No chime.' }
 Write-Host '  Restart open Claude Code sessions so they pick up the new hooks.'
