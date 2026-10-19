@@ -1,6 +1,7 @@
 # claude-in-soundmixer-patch
 
-**This patch is for Windows machines.** (Windows 10 and 11.)
+**This patch is for Windows machines.** (Windows 10 and 11.) It does not work on
+macOS or Linux; see [macOS and Linux](#macos-and-linux) for why.
 
 A patch for the Claude desktop app on Windows. It does three things:
 
@@ -151,6 +152,23 @@ that level, and does nothing while Claude is muted.
 - The Claude desktop app, using Claude Code (the Code tab). The hooks run in
   Claude Code sessions.
 - .NET Framework 4.x, which is built into Windows 10 and 11.
+
+## macOS and Linux
+
+This patch only works on Windows. Nothing in it runs on macOS or Linux:
+
+- The watcher is built on Windows Core Audio (the per-app audio sessions behind the
+  Volume Mixer). It is compiled with the .NET Framework compiler that comes with
+  Windows. The installer is a Windows PowerShell script started from `.cmd` files.
+- **macOS** has no per-app volume mixer, so there is no Claude slider to create.
+  You would need a third-party audio tool for per-app volume.
+- **Linux** has per-app volume through PulseAudio or PipeWire (for example
+  `pavucontrol`), so a port could be written, but it would be a separate program.
+  Also, Anthropic does not make an official Claude desktop app for Linux.
+
+You can make the chime part on its own on macOS or Linux by hand. Add a Claude Code
+`Stop` hook that plays a sound, for example `afplay /path/to/chime.wav` on macOS or
+`paplay /path/to/chime.wav` on Linux. It will not follow a Claude volume slider.
 
 ## Troubleshooting
 
