@@ -4,7 +4,6 @@
 //   claude-chime.exe            play chime.wav or chime.mp3 (next to the exe), start the watcher
 //   claude-chime.exe <file>     play that file (.wav, or .mp3 etc. via MCI), start the watcher
 //   claude-chime.exe --start    only start the watcher (SessionStart hook), no sound
-//   claude-chime.exe --why      print which level the chime would use and why, no sound
 //   claude-chime.exe --watch    run the watcher (normally started by --start or the chime)
 //
 // The chime plays at the level of the Claude desktop app's Volume Mixer slider
@@ -71,15 +70,8 @@ static class ClaudeChime
             if (mode == "--start") { EnsureWatcher(new Procs()); return 0; }
 
             var procs = new Procs();
-            float volume; bool muted; string source;
-            ResolveChimeLevel(procs, out volume, out muted, out source);
-
-            if (mode == "--why")
-            {
-                Console.WriteLine("volume={0:0.00} muted={1} source={2}", volume, muted, source);
-                Console.WriteLine("watcher running: {0}", WatcherRunning());
-                return 0;
-            }
+            float volume; bool muted;
+            ResolveChimeLevel(procs, out volume, out muted);
 
             EnsureWatcher(procs);
             if (muted || volume <= 0f) return 0;
@@ -135,14 +127,10 @@ static class ClaudeChime
 
     // ==== chime level ===============================================================
 
-    static void ResolveChimeLevel(Procs procs, out float volume, out bool muted, out string source)
+    static void ResolveChimeLevel(Procs procs, out float volume, out bool muted)
     {
         // 0. while the watcher runs it owns the Claude slider and writes its level down
-        if (WatcherRunning() && TryReadLevelFile(procs, out volume, out muted))
-        {
-            source = "Claude slider (watcher, claude-level.txt)";
-            return;
-        }
+        if (WatcherRunning() && TryReadLevelFile(procs, out volume, out muted)) return;
 
         var enumerator = NewEnumerator();
         IMMDevice def;
@@ -154,23 +142,14 @@ static class ClaudeChime
         {
             if (!procs.IsDesktopApp(s.Pid) || s.State == 2) continue;
             volume = s.Volume; muted = s.Muted;
-            source = "live Claude session on default device";
             return;
         }
 
         // 2. what the watcher last saw during this run of Claude
-        if (TryReadLevelFile(procs, out volume, out muted))
-        {
-            source = "last level seen by the watcher (claude-level.txt)";
-            return;
-        }
+        if (TryReadLevelFile(procs, out volume, out muted)) return;
 
         // 3. level Windows saved for Claude on the default device
-        if (TrySavedLevel(def, procs, out volume, out muted))
-        {
-            source = "level Windows saved for Claude (registry)";
-            return;
-        }
+        if (TrySavedLevel(def, procs, out volume, out muted)) return;
 
         // 4. live session on another device
         foreach (var dev in ActiveDevices(enumerator))
@@ -180,13 +159,12 @@ static class ClaudeChime
             {
                 if (!procs.IsDesktopApp(s.Pid) || s.State == 2) continue;
                 volume = s.Volume; muted = s.Muted;
-                source = "live Claude session on another device";
                 return;
             }
         }
 
+        // 5. nothing found
         volume = 1f; muted = false;
-        source = procs.ClaudeRoot() == 0 ? "Claude app not running, default 100%" : "no Claude level found, default 100%";
     }
 
     static void SetOwnSessionVolume(float level)
