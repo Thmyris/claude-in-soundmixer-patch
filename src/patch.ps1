@@ -9,8 +9,8 @@
   compiler that ships with Windows, copies it to <Claude dir>\sounds and adds
   Claude Code hooks to <Claude dir>\settings.json:
     SessionStart  claude-chime.exe --start   starts the mixer watcher (always)
-    Stop          claude-chime.exe           chime when a prompt finishes
-    Notification  claude-chime.exe           chime when Claude needs you (optional)
+    Stop          claude-chime.exe           chime when a prompt finishes (optional)
+    Notification  claude-chime.exe           chime when Claude needs you (with Stop)
   The chime is sounds\chime.mp3 or sounds\chime.wav in this folder. Without one,
   only the slider is installed.
   settings.json is backed up before it is changed. Running it again updates the
@@ -19,16 +19,15 @@
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File src\patch.ps1
 .EXAMPLE
-  powershell -ExecutionPolicy Bypass -File src\patch.ps1 -WaitingChime no
+  powershell -ExecutionPolicy Bypass -File src\patch.ps1 -Chime no
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File src\patch.ps1 -Uninstall
 #>
 [CmdletBinding()]
 param(
-    # Chime when Claude finishes a prompt (needs sounds\chime.mp3 or .wav). no = slider only.
+    # Chime when Claude is waiting for you: a prompt finished, or it needs your
+    # permission (needs sounds\chime.mp3 or .wav). no = slider only.
     [ValidateSet('ask', 'yes', 'no')] [string] $Chime = 'ask',
-    # Also chime when Claude asks for permission or is waiting for you.
-    [ValidateSet('ask', 'yes', 'no')] [string] $WaitingChime = 'ask',
     # Claude Code's config folder. Default: $env:CLAUDE_CONFIG_DIR, else ~\.claude.
     [string] $ClaudeDir,
     [switch] $Uninstall
@@ -232,16 +231,10 @@ $soundFile = Find-ChimeSound
 $noSound = -not $soundFile
 $wantChime = $false
 if ($soundFile) {
-    if ($Chime -eq 'ask') { $wantChime = Ask-YesNo 'Play the cursor chime when Claude finishes a prompt?' $true }
+    if ($Chime -eq 'ask') { $wantChime = Ask-YesNo 'Play the cursor chime when Claude is waiting for you?' $true }
     else { $wantChime = $Chime -eq 'yes' }
 }
 if (-not $wantChime) { $soundFile = $null }
-
-$wantWaiting = $false
-if ($wantChime) {
-    if ($WaitingChime -eq 'ask') { $wantWaiting = Ask-YesNo 'Play the cursor chime when Claude is waiting for you?' $true }
-    else { $wantWaiting = $WaitingChime -eq 'yes' }
-}
 
 # Read settings before touching anything, so a broken settings.json stops the patch early.
 $before = Read-SettingsText
@@ -271,8 +264,10 @@ if ($exeForHook -match '\s') { $exeForHook = '"' + $exeForHook + '"' }
 
 Remove-OurHooks $settings
 Add-Hook $settings 'SessionStart' "$exeForHook --start"
-if ($wantChime) { Add-Hook $settings 'Stop' $exeForHook }
-if ($wantWaiting) { Add-Hook $settings 'Notification' $exeForHook }
+if ($wantChime) {
+    Add-Hook $settings 'Stop' $exeForHook
+    Add-Hook $settings 'Notification' $exeForHook
+}
 Save-Settings $settings $before
 
 # Start the watcher now if the Claude app is running (it exits by itself otherwise).
@@ -283,9 +278,8 @@ Write-Host 'Done.'
 Write-Host '  - Volume Mixer: one "Claude" slider while the Claude app runs (after your next'
 Write-Host '    Claude Code session starts, or right away if the app is already open).'
 if ($wantChime) {
-    $when = 'when a prompt finishes'
-    if ($wantWaiting) { $when += ' and when Claude needs you' }
-    Write-Host "  - Chime $when, at the Claude slider's level, silent when it is muted."
+    Write-Host "  - Chime when a prompt finishes and when Claude needs you, at the Claude slider's"
+    Write-Host '    level, silent when it is muted.'
 }
 elseif ($noSound) {
     Write-Host "  - No chime: there is no chime.mp3 or chime.wav in $(Join-Path $repo 'sounds')."
