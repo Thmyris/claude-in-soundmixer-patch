@@ -26,7 +26,7 @@
 [CmdletBinding()]
 param(
     # Chime when Claude finishes a prompt (needs sounds\chime.mp3 or .wav). no = slider only.
-    [ValidateSet('yes', 'no')] [string] $Chime = 'yes',
+    [ValidateSet('ask', 'yes', 'no')] [string] $Chime = 'ask',
     # Also chime when Claude asks for permission or is waiting for you.
     [ValidateSet('ask', 'yes', 'no')] [string] $WaitingChime = 'ask',
     # Claude Code's config folder. Default: $env:CLAUDE_CONFIG_DIR, else ~\.claude.
@@ -228,13 +228,14 @@ Write-Host 'This adds one permanent "Claude" slider to the Windows Volume Mixer 
 Write-Host "controls Claude's Terminal panel."
 Write-Host ''
 
-$soundFile = $null
-$noSound = $false
-if ($Chime -eq 'yes') {
-    $soundFile = Find-ChimeSound
-    $noSound = -not $soundFile
+$soundFile = Find-ChimeSound
+$noSound = -not $soundFile
+$wantChime = $false
+if ($soundFile) {
+    if ($Chime -eq 'ask') { $wantChime = Ask-YesNo 'Play the cursor chime when Claude finishes a prompt?' $true }
+    else { $wantChime = $Chime -eq 'yes' }
 }
-$wantChime = [bool] $soundFile
+if (-not $wantChime) { $soundFile = $null }
 
 $wantWaiting = $false
 if ($wantChime) {
