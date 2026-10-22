@@ -5,7 +5,7 @@
 A soundmixer patch for the Claude desktop app. It does two things:
 
 1. **Permanent "Claude" slider in the Windows Volume Mixer**.
-   So if Claude starts playing music from youtube while testing your browser extension app, or the terminal, you can mute it. It also auto updates the mixer value when claude app auto updates itself, so you'll never get blasted with high volume. [looking at you discord]
+   Let's say Claude started playing music from youtube while testing your browser extension app, or from the terminal. With this slider, you can adjust the volume or mute it. It also auto updates the volume value when claude app auto updates itself, so you'll never get blasted with high volume. [looking at you discord]
 2. Optional: **Cursor finish chime when Claude finishes a prompt**.
    The chime follows the slider.
    
